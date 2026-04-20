@@ -44,22 +44,10 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const FONT = 'font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#3b3f44;line-height:1.5;';
-    const wrapTekst = function (tekst) {
-      if (!tekst) return '';
-      return '<span style="' + FONT + '">' + tekst + '</span>';
-    };
-
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][winkelIdx] || '').trim() === winkel_id) {
         try {
           const parsed = JSON.parse(rows[i][feedJsonIdx] || '{}');
-          for (let a = 1; a <= 3; a++) {
-            const key = 'artikel_' + a;
-            if (parsed[key] && parsed[key].tekst) {
-              parsed[key].tekst = wrapTekst(parsed[key].tekst);
-            }
-          }
           res.status(200).json(parsed);
           return;
         } catch (e) {
