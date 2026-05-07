@@ -38,6 +38,8 @@ module.exports = async function handler(req, res) {
     const header = rows[0].map(function (h) { return h.trim(); });
     const winkelIdx = header.indexOf('winkel_id');
     const feedJsonIdx = header.indexOf('feed_json');
+    const maandIdx = header.indexOf('maand');
+    const updatedIdx = header.indexOf('updated_at');
 
     if (winkelIdx === -1 || feedJsonIdx === -1) {
       res.status(200).json(emptyResponse());
@@ -45,27 +47,47 @@ module.exports = async function handler(req, res) {
     }
 
     const FONT = 'font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#3b3f44;line-height:1.5;';
+    const huidigeMaand = new Date().toLocaleString('nl-NL', { month: 'long', year: 'numeric' }).toLowerCase().trim();
 
+    const matches = [];
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][winkelIdx] || '').trim() === winkel_id) {
-        try {
-          const parsed = JSON.parse(rows[i][feedJsonIdx] || '{}');
-          for (let a = 1; a <= 3; a++) {
-            const key = 'artikel_' + a;
-            if (parsed[key] && parsed[key].tekst) {
-              parsed[key].tekst = '<span style="' + FONT + '">' + parsed[key].tekst + '</span>';
-            }
-          }
-          res.status(200).json(parsed);
-          return;
-        } catch (e) {
-          res.status(200).json(emptyResponse());
-          return;
-        }
+        matches.push(rows[i]);
       }
     }
 
-    res.status(200).json(emptyResponse());
+    if (matches.length === 0) {
+      res.status(200).json(emptyResponse());
+      return;
+    }
+
+    let chosen = null;
+    if (maandIdx !== -1) {
+      chosen = matches.find(function (r) {
+        return String(r[maandIdx] || '').toLowerCase().trim() === huidigeMaand;
+      });
+    }
+    if (!chosen && updatedIdx !== -1) {
+      chosen = matches.slice().sort(function (a, b) {
+        return String(b[updatedIdx] || '').localeCompare(String(a[updatedIdx] || ''));
+      })[0];
+    }
+    if (!chosen) chosen = matches[matches.length - 1];
+
+    try {
+      const parsed = JSON.parse(chosen[feedJsonIdx] || '{}');
+      for (let a = 1; a <= 3; a++) {
+        const key = 'artikel_' + a;
+        if (parsed[key] && parsed[key].tekst) {
+          parsed[key].tekst = '<span style="' + FONT + '">' + parsed[key].tekst + '</span>';
+        }
+      }
+      res.status(200).json(parsed);
+      return;
+    } catch (e) {
+      res.status(200).json(emptyResponse());
+      return;
+    }
   } catch (err) {
     res.status(200).json(emptyResponse());
   }
