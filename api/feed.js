@@ -81,6 +81,9 @@ module.exports = async function handler(req, res) {
         if (parsed[key] && parsed[key].tekst) {
           parsed[key].tekst = '<span style="' + FONT + '">' + parsed[key].tekst + '</span>';
         }
+        if (parsed[key] && parsed[key].image) {
+          parsed[key].image = imgProxy(parsed[key].image);
+        }
       }
       res.status(200).json(parsed);
       return;
@@ -92,6 +95,27 @@ module.exports = async function handler(req, res) {
     res.status(200).json(emptyResponse());
   }
 };
+
+// Normaliseert afbeeldingen voor mailclients (incl. Outlook desktop):
+// - WebP wordt omgezet naar JPEG
+// - Dropbox/Drive-redirect-hotlinks worden via images.weserv.nl als echte JPEG geserveerd
+// Normale JPG/PNG op echte hosts blijven ongewijzigd (die werken al overal).
+function imgProxy(url) {
+  if (!url) return url;
+  var u = String(url).trim();
+  if (!u || u === '#') return url;
+  var low = u.toLowerCase();
+  var needs = low.indexOf('dropbox.com') !== -1 || low.indexOf('drive.google.com') !== -1 || low.indexOf('.webp') !== -1;
+  if (!needs) return url;
+  // Dropbox share-link -> directe downloadhost + dl=1 (anders 404 voor externe fetchers)
+  u = u.replace('://www.dropbox.com', '://dl.dropboxusercontent.com').replace('://dropbox.com', '://dl.dropboxusercontent.com');
+  if (u.toLowerCase().indexOf('dropboxusercontent.com') !== -1) {
+    u = u.replace(/([?&])raw=1\b/i, '$1dl=1');
+    if (!/[?&]dl=1\b/i.test(u)) { u += (u.indexOf('?') !== -1 ? '&' : '?') + 'dl=1'; }
+  }
+  var clean = u.replace(/^https?:\/\//, '');
+  return 'https://images.weserv.nl/?url=' + encodeURIComponent(clean) + '&output=jpg&w=1400&we&q=82';
+}
 
 function parseCsv(text) {
   const rows = [];
