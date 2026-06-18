@@ -46,7 +46,7 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const FONT = 'font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#3b3f44;line-height:1.5;';
+    const FONT = 'font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;';
     const huidigeMaand = new Date().toLocaleString('nl-NL', { month: 'long', year: 'numeric' }).toLowerCase().trim();
 
     const matches = [];
