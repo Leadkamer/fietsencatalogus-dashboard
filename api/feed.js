@@ -61,18 +61,40 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    // Bepaal of een rij daadwerkelijk content heeft (minstens 1 artikel met titel)
+    const rowHasContent = function (r) {
+      try {
+        const p = JSON.parse((feedJsonIdx !== -1 ? r[feedJsonIdx] : '') || '{}');
+        for (let a = 1; a <= 3; a++) {
+          const art = p['artikel_' + a];
+          if (art && String(art.titel || '').trim()) return true;
+        }
+        return false;
+      } catch (e) { return false; }
+    };
+
+    // Rijen op nieuwste updated_at eerst
+    const byNewest = matches.slice().sort(function (a, b) {
+      return String((updatedIdx !== -1 ? b[updatedIdx] : '') || '').localeCompare(String((updatedIdx !== -1 ? a[updatedIdx] : '') || ''));
+    });
+
     let chosen = null;
+    // 1. Huidige maand, mits die rij content heeft
     if (maandIdx !== -1) {
-      chosen = matches.find(function (r) {
+      chosen = byNewest.find(function (r) {
+        return String(r[maandIdx] || '').toLowerCase().trim() === huidigeMaand && rowHasContent(r);
+      });
+    }
+    // 2. Anders de nieuwste rij MET content (zo blokkeert een lege huidige-maand-rij nooit echte content)
+    if (!chosen) chosen = byNewest.find(rowHasContent);
+    // 3. Anders huidige maand zonder content
+    if (!chosen && maandIdx !== -1) {
+      chosen = byNewest.find(function (r) {
         return String(r[maandIdx] || '').toLowerCase().trim() === huidigeMaand;
       });
     }
-    if (!chosen && updatedIdx !== -1) {
-      chosen = matches.slice().sort(function (a, b) {
-        return String(b[updatedIdx] || '').localeCompare(String(a[updatedIdx] || ''));
-      })[0];
-    }
-    if (!chosen) chosen = matches[matches.length - 1];
+    // 4. Anders gewoon de nieuwste rij
+    if (!chosen) chosen = byNewest[0] || matches[matches.length - 1];
 
     try {
       const parsed = JSON.parse(chosen[feedJsonIdx] || '{}');
