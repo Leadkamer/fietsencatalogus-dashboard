@@ -51,7 +51,7 @@ module.exports = async function handler(req, res) {
 
     const matches = [];
     for (let i = 1; i < rows.length; i++) {
-      if (String(rows[i][winkelIdx] || '').trim() === winkel_id) {
+      if (String(rows[i][winkelIdx] || '').trim().toLowerCase() === winkel_id.toLowerCase()) {
         matches.push(rows[i]);
       }
     }
