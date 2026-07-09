@@ -100,12 +100,23 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const path = (req.query && req.query.path) || (req.body && req.body.path) || process.env.DROPBOX_FOLDER_PATH || '';
+    const root = process.env.DROPBOX_FOLDER_PATH || '';
+    const reqPath = (req.query && req.query.path) || (req.body && req.body.path) || '';
+    const path = reqPath || root;
     const token = await getAccessToken();
     const folder = await listFolder(token, path);
-    const files = (folder.entries || []).filter(e => e['.tag'] === 'file' && IMG_EXT.test(e.name));
+    const entries = folder.entries || [];
 
-    const results = await Promise.all(files.map(async f => {
+    // Submappen (voor navigatie in de picker)
+    const folders = entries
+      .filter(e => e['.tag'] === 'folder')
+      .map(e => ({ name: e.name, path: e.path_display }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+
+    // Afbeeldingen in deze map
+    const imgFiles = entries.filter(e => e['.tag'] === 'file' && IMG_EXT.test(e.name));
+
+    const results = await Promise.all(imgFiles.map(async f => {
       try {
         const sharedUrl = await getOrCreateSharedLink(token, f.path_lower);
         const directUrl = toDirectUrl(sharedUrl);
@@ -117,7 +128,7 @@ module.exports = async function handler(req, res) {
 
     // Sort newest first
     results.sort((a, b) => (b.modified || '').localeCompare(a.modified || ''));
-    res.status(200).json({ success: true, path: path, count: results.length, files: results });
+    res.status(200).json({ success: true, root: root, path: path, folders: folders, count: results.length, files: results });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
