@@ -16,7 +16,9 @@ module.exports = async function handler(req, res) {
 
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+  // Korte edge-cache (30s) zonder stale-while-revalidate: voorkomt dat een net-gevulde feed
+  // nog minutenlang als 'leeg' wordt geserveerd op het moment dat Brevo de campagne bindt.
+  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30');
 
   if (!winkel_id) {
     res.status(200).json(emptyResponse());
