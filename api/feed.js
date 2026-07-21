@@ -103,7 +103,12 @@ module.exports = async function handler(req, res) {
       for (let a = 1; a <= 3; a++) {
         const key = 'artikel_' + a;
         if (parsed[key] && parsed[key].tekst) {
-          parsed[key].tekst = '<span style="' + FONT + '">' + parsed[key].tekst + '</span>';
+          // Corrigeer typefouten in links (bv. "https:///" met 3 slashes) zodat ze
+          // niet als kapotte/dubbele link in de mail belanden.
+          parsed[key].tekst = '<span style="' + FONT + '">' + fixSlashes(parsed[key].tekst) + '</span>';
+        }
+        if (parsed[key] && parsed[key].url) {
+          parsed[key].url = fixSlashes(parsed[key].url);
         }
         if (parsed[key] && parsed[key].image) {
           parsed[key].image = imgProxy(parsed[key].image);
@@ -119,6 +124,12 @@ module.exports = async function handler(req, res) {
     res.status(200).json(emptyResponse());
   }
 };
+
+// Corrigeert URL-typefouten: 3+ slashes na het schema (bv. "https:///") -> 2 slashes.
+// Zo'n misvormde URL wordt door Outlook/Brevo als kapotte, dubbel weergegeven link getoond.
+function fixSlashes(s) {
+  return String(s == null ? '' : s).replace(/(https?:)\/{3,}/gi, '$1//');
+}
 
 // Normaliseert afbeeldingen voor mailclients (incl. Outlook desktop):
 // - WebP wordt omgezet naar JPEG
