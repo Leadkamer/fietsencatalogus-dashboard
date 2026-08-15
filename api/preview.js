@@ -14,15 +14,18 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    var feedUrl = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv&gid=' + FEED_CACHE_GID;
+    // Feed via dezelfde API als Brevo (kiest zelf de juiste maand-rij);
+    // de Feed Cache-tab heeft meerdere rijen per winkel (maand-historie),
+    // dus zelf de eerste rij pakken toont een oude maand.
+    var feedApiUrl = 'https://fietsencatalogus-dashboard.vercel.app/api/feed?winkel_id=' + encodeURIComponent(winkel_id);
     var winkelsUrl = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv&gid=' + WINKELS_GID;
 
-    var feedResp = await fetch(feedUrl);
+    var feedResp = await fetch(feedApiUrl);
     var winkelsResp = await fetch(winkelsUrl);
-    var feedCsv = await feedResp.text();
+    var feedData = null;
+    try { feedData = await feedResp.json(); } catch (e) {}
     var winkelsCsv = await winkelsResp.text();
 
-    var feedRows = parseCsv(feedCsv);
     var winkelsRows = parseCsv(winkelsCsv);
 
     // Find winkel name + logo
@@ -40,19 +43,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // Find feed data
-    var feedHeader = feedRows[0].map(function(h) { return h.trim(); });
-    var fIdIdx = feedHeader.indexOf('winkel_id');
-    var fJsonIdx = feedHeader.indexOf('feed_json');
-    var feedData = null;
-    for (var f = 1; f < feedRows.length; f++) {
-      if (String(feedRows[f][fIdIdx] || '').trim() === winkel_id) {
-        try { feedData = JSON.parse(feedRows[f][fJsonIdx] || '{}'); } catch(e) {}
-        break;
-      }
-    }
-
-    if (!feedData) {
+    if (!feedData || !feedData.maand) {
       res.status(200).send('<html><body><p>Geen nieuwsbrief data gevonden voor ' + esc(winkelnaam) + '.</p></body></html>');
       return;
     }
@@ -87,7 +78,7 @@ module.exports = async function handler(req, res) {
       if (art.image) {
         html += '<img src="' + esc(art.image) + '" onerror="this.style.display=\'none\'">\n';
       }
-      html += '<p>' + escHtml(art.tekst || '') + '</p>\n';
+      html += '<p>' + feedHtml(art.tekst || '') + '</p>\n';
       if (art.url && art.url !== '#' && art.url !== '') {
         html += '<a href="' + esc(art.url) + '" class="btn">Lees verder</a>\n';
       }
@@ -112,6 +103,15 @@ function esc(s) {
 
 function escHtml(s) {
   return String(s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+}
+
+// Feed-tekst bevat opmaak-HTML uit onze eigen pipeline (spans, br, strong);
+// die tonen we zoals Brevo dat doet, alleen scripts worden gestript.
+function feedHtml(s) {
+  return String(s || '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, '');
 }
 
 function parseCsv(text) {
