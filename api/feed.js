@@ -49,7 +49,7 @@ module.exports = async function handler(req, res) {
     }
 
     const FONT = 'font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;';
-    const huidigeMaand = new Date().toLocaleString('nl-NL', { month: 'long', year: 'numeric' }).toLowerCase().trim();
+    const huidigeMaand = new Date().toLocaleString('nl-NL', { month: 'long', year: 'numeric', timeZone: 'Europe/Amsterdam' }).toLowerCase().trim();
 
     const matches = [];
     for (let i = 1; i < rows.length; i++) {
@@ -100,6 +100,12 @@ module.exports = async function handler(req, res) {
 
     try {
       const parsed = JSON.parse(chosen[feedJsonIdx] || '{}');
+      // Het maandlabel volgt de maand waarin de mail daadwerkelijk de deur uit
+      // gaat, niet de tab waarin is goedgekeurd. Een nieuwsbrief die op 1
+      // september wordt verstuurd toont dus "september 2026", ook als de
+      // content nog uit de augustusrij komt. Brevo haalt deze feed op bij het
+      // aanmaken en versturen van de campagne, dus dat is het juiste moment.
+      parsed.maand = huidigeMaand;
       for (let a = 1; a <= 3; a++) {
         const key = 'artikel_' + a;
         if (parsed[key] && parsed[key].tekst) {
